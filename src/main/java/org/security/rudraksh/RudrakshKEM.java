@@ -25,7 +25,7 @@ public class RudrakshKEM {
 
     public static final int P_BITS = 10;
     public static final int P = 1 << P_BITS;                // 1024
-    public static final int V_COMPRESS_P = 1 << (3 + B) ; //1 << 12;  //1 << (3 + B) ;//1 << 12;         // 4096
+    public static final int V_COMPRESS_P = 1 << 6 ; //1 << 12;  //1 << (3 + B) ;//1 << 12;         // 4096
     public static final int LEN_K_BITS = 256;
     public static final int LEN_K_BYTES = LEN_K_BITS / 8;   // 32
 
@@ -624,7 +624,7 @@ public class RudrakshKEM {
         if (!Arrays.equals(m, mprime)) { debugBytes("m", m); debugBytes("m'", mprime); }
 
         // Run KEM test 100 times
-        int trials = 100;
+        int trials = 1000;
         int failures = 0;
         for (int i = 0; i < trials; i++) {
             byte[][] ctAndK = impl.kemEncaps(pk);
@@ -642,7 +642,7 @@ public class RudrakshKEM {
                 boolean match2 = Arrays.equals(Kenc, Kdec2);
                 if (!match2) {
                     failures++;
-                    System.out.printf("Trial %d: MISMATCH 2 %n", i);
+                    System.out.printf("Trial %d: MISMATCH 2 %n", i/10);
                 }
             }
         }
