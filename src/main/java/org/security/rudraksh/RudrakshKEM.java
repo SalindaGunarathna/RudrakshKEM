@@ -25,8 +25,8 @@ public class RudrakshKEM {
 
     public static final int P_BITS = 10;
     public static final int P = 1 << P_BITS;                // 1024
-    public static final int V_COMPRESS_P = 1 << 6 ; //1 << 12;  //1 << (3 + B) ;//1 << 12;         // 4096
-    public static final int LEN_K_BITS = 256;
+    public static final int V_COMPRESS_P = 1 << 12 ; //1 << 12;  //1 << (3 + B) ;//1 << 12;         // 4096
+    public static final int LEN_K_BITS = 128;
     public static final int LEN_K_BYTES = LEN_K_BITS / 8;   // 32
 
     public static final int SEED_BYTES = 32; // length for seedA / randomness
@@ -167,74 +167,70 @@ public class RudrakshKEM {
             return res;
         }
     }
-
-    /* ---- Message pack/unpack and encode/decode ---- */
     private static int[] messageBytesToPoly2B(byte[] m) {
         int[] out = new int[N];
         int bitPos = 0;
         for (int i = 0; i < N; i++) {
             int val = 0;
-            for (int b = 0; b < TWO_B; b++) {
+            for (int b = 0; b < B; b++) {  // B bits, not TWO_B!
                 int byteIndex = (bitPos + b) / 8;
                 int bitIndex  = (bitPos + b) % 8;
                 int bit = 0;
                 if (byteIndex < m.length) bit = (m[byteIndex] >>> bitIndex) & 1;
                 val |= (bit << b);
             }
-            out[i] = val & ((1 << TWO_B) - 1);
-            bitPos += TWO_B;
+            out[i] = val & ((1 << B) - 1);  // Mask to B bits
+            bitPos += B;  // Advance by B bits
         }
         return out;
     }
     private static byte[] poly2BToMessageBytes(int[] poly) {
-        int totalBits = N * TWO_B;
+        int totalBits = N * B;  // B bits per coefficient
         int outLen = (totalBits + 7) / 8;
         byte[] out = new byte[outLen];
         int bitPos = 0;
         for (int i = 0; i < N; i++) {
-            int coeff = poly[i] & ((1 << TWO_B) - 1);
-            for (int b = 0; b < TWO_B; b++) {
+            int coeff = poly[i] & ((1 << B) - 1);  // Mask to B bits
+            for (int b = 0; b < B; b++) {  // B bits
                 int bit = (coeff >> b) & 1;
                 int byteIndex = (bitPos + b) / 8;
                 int bitIndex  = (bitPos + b) % 8;
                 if (byteIndex < out.length) out[byteIndex] |= (bit << bitIndex);
             }
-            bitPos += TWO_B;
+            bitPos += B;
         }
         return out;
     }
+
     private static int[] encodeMessagePoly(int[] mPoly) {
         int[] out = new int[N];
+        // Paper: Encode(m) = ⌊q/2^B⌉ × m
         for (int i = 0; i < N; i++) {
-            int coeff = mPoly[i] & ((1 << TWO_B) - 1);
-            out[i] = (int)(((long)Q * coeff + (1L << (TWO_B - 1))) >> TWO_B);
+            int coeff = mPoly[i] & ((1 << B) - 1);  // B-bit value (0-3)
+            // Compute ⌊q/2^B⌉ with rounding: (Q + 2^(B-1)) >> B
+            out[i] = (int)(((long)Q * coeff + (1L << (B - 1))) >> B);
         }
         return out;
     }
     private static int[] decodeMessagePoly(int[] polyQ) {
         int[] out = new int[N];
+        // Paper: Decode(m'') = ⌊(2^B × m'' + ⌊q/2⌉) / q⌋ & (2^B - 1)
         for (int i = 0; i < N; i++) {
-            long tmp = (((long)(1 << TWO_B)) * polyQ[i] + (Q / 2L));
-            out[i] = (int)((tmp / Q) & ((1 << TWO_B) - 1));
+            long tmp = (((long)(1 << B)) * polyQ[i] + (Q / 2L));
+            out[i] = (int)((tmp / Q) & ((1 << B) - 1));
         }
         return out;
     }
 
     private static int compressCoeff(int coeff, int p) {
         long num = (long) coeff * p + Q / 2L;
-        return (int) (num / Q) & (p - 1);
+        return (int) ((num / Q) % p);
     }
     private static int decompressCoeff(int u, int p) {
-//        long num = (long) Q * (u & (p - 1)) + p / 2L;
-//        return (int) (num / p);
-        long num = (long) Q * u + p / 2;
-        int shift = Integer.numberOfTrailingZeros(p);
-        return (int) (num >> shift);
+        long num = (long) Q * u + (p / 2L);
+        return (int) (num / p);
     }
 
-    /* ---- CBD sampling (η = 2) ----
-       For each coefficient: draw two independent 2-bit values u,v and return popcount(u)-popcount(v)
-    */
     private static void sampleVectorCBD(int[][] outVec, byte[] seed, byte domain) {
         for (int i = 0; i < L; i++) {
             AsconXofStream s = new AsconXofStream();
@@ -532,7 +528,7 @@ public class RudrakshKEM {
     }
 
     public byte[][] kemEncaps(KEMPk pkObj) {
-        byte[] m = new byte[(N * TWO_B + 7) / 8]; // enough bytes for message encoding
+        byte[] m = new byte[(N * B + 7) / 8]; // enough bytes for message encoding
         csprngBytes(m);
         byte[] pkh = H_function(serializePk(pkObj.pkePk));
         byte[] kr = G_function(pkh, m);
@@ -590,19 +586,6 @@ public class RudrakshKEM {
         boolean equal = Arrays.equals(ctSerialized, cStarSer);
         return equal ? Ksuccess : Kfail;
 
-//        boolean equal = Arrays.equals(ctSerialized, cStarSer);
-//        if (equal) {
-//
-//            return Kprime;
-//        } else {
-//
-//            byte[] cAndZ = new byte[cStarSer.length + skObj.z.length];
-//            System.arraycopy(ctSerialized, 0, cAndZ, 0, ctSerialized.length);
-//            System.arraycopy(skObj.z, 0, cAndZ, ctSerialized.length, skObj.z.length);
-//            byte[] Kpp = H_function(cAndZ);
-//
-//            return Kpp;
-//        }
     }
 
     /* ---- Main demo ---- */
@@ -614,7 +597,7 @@ public class RudrakshKEM {
         try { impl.kemKeyGen(pk, sk); } catch (Exception ex) { ex.printStackTrace(); System.err.println("KeyGen failed."); return; }
 
         // PKE unit test
-        byte[] m = new byte[(N * TWO_B + 7) / 8];
+        byte[] m = new byte[(N * B + 7) / 8];
         csprngBytes(m);
         byte[] r = new byte[LEN_K_BYTES];
         csprngBytes(r);
@@ -634,6 +617,9 @@ public class RudrakshKEM {
             byte[] Kdec = impl.kemDecaps(pk, sk, ctSer);
 
             boolean match = Arrays.equals(Kenc, Kdec);
+
+            System.out.printf("cypher text length: %d%n", ctSer.length);
+            System.out.printf("shared key length: %d%n", Kenc.length);
             if (!match) {
 
                 System.out.printf("Trial %d: MISMATCH%n", i);
