@@ -1,5 +1,7 @@
 # Rudraksh (KEM-poly64) Java Implementation
 
+**Disclaimer:** This implementation is not verified by any authority or the paper authors. It is provided for community review only.
+
 This repository contains a Java implementation of the Rudraksh lightweight MLWE-based KEM (KEM-poly64) described in the paper: https://tches.iacr.org/index.php/TCHES/article/view/12060
 
 ## Project Layout
