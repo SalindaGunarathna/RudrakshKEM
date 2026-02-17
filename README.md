@@ -21,7 +21,7 @@ This repository contains a Java implementation of the Rudraksh lightweight MLWE-
 
 ## Use In Your Project
 - Option A (local Maven install):
-- Run: `mvn -q -DskipTests install`
+- Run: `mvn -q -DskipTests install` (installs to your local Maven cache; not published remotely)
 - Add this dependency to your `pom.xml`:
 ```xml
 <dependency>
