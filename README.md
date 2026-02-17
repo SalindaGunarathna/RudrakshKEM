@@ -53,3 +53,8 @@ byte[] kDec = kem.kemDecaps(pk, sk, ct);
 
 ## Community Review
 I attempted to contact the core authors of the paper to clarify implementation details, but I was unable to receive a response. I am opening this repository to the community for review to identify any mismatches or issues in the implementation and to provide comments or improvements.
+
+## Implementation Notes (Mismatch Fixes)
+- v compression now uses `compress(cm, 32)` / `decompress(v, 32)` as specified for KEM-poly64 (Table 1 and Sec. 4.2). The modulus is `2^(t_bits + B) = 32` (t_bits=3, B=2).
+- KEM key derivation follows Fig. 3: on success return `K'` directly from `G`, and on failure return `H(c, z)`. The extra `H(ct || K)` step was removed to match the paper.
+- Ciphertext/public-key serialization is still 16-bit per coefficient (not bit-packed to 10-bit/5-bit). This keeps the implementation simple but does not match the paper’s bandwidth sizes; contributions to implement packing are welcome.
