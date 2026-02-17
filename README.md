@@ -17,6 +17,35 @@ This repository contains a Java implementation of the Rudraksh lightweight MLWE-
 - Build: `mvn -q -DskipTests package`
 - Demo run: `mvn -q org.codehaus.mojo:exec-maven-plugin:3.1.0:java -Dexec.mainClass=org.security.rudraksh.RudrakshKEM`
 
+## Use In Your Project
+- Option A (local Maven install):
+- Run: `mvn -q -DskipTests install`
+- Add this dependency to your `pom.xml`:
+```xml
+<dependency>
+  <groupId>org.security</groupId>
+  <artifactId>security-protocole</artifactId>
+  <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+- Option B (source include):
+- Copy `src/main/java/org/security/rudraksh` into your project and build normally.
+
+Example usage:
+```java
+import org.security.rudraksh.RudrakshKEM;
+
+RudrakshKEM kem = new RudrakshKEM();
+RudrakshKEM.KEMPk pk = new RudrakshKEM.KEMPk();
+RudrakshKEM.KEMSk sk = new RudrakshKEM.KEMSk();
+
+kem.kemKeyGen(pk, sk);
+byte[][] ctAndK = kem.kemEncaps(pk);
+byte[] ct = ctAndK[0];
+byte[] kEnc = ctAndK[1];
+byte[] kDec = kem.kemDecaps(pk, sk, ct);
+```
+
 ## Test
 - `mvn test`
 
