@@ -25,9 +25,10 @@ public class RudrakshKEM {
 
     public static final int P_BITS = 10;
     public static final int P = 1 << P_BITS;                // 1024
-    public static final int V_COMPRESS_P = 1 << 12 ; //1 << 12;  //1 << (3 + B) ;//1 << 12;         // 4096
+    public static final int T_BITS = 3;                     // log2(t) from Table 1 (KEM-poly64)
+    public static final int V_COMPRESS_P = 1 << (T_BITS + B); // 2^(t_bits + B) = 32 for KEM-poly64
     public static final int LEN_K_BITS = 128;
-    public static final int LEN_K_BYTES = LEN_K_BITS / 8;   // 32
+    public static final int LEN_K_BYTES = LEN_K_BITS / 8;   // 16
 
     public static final int SEED_BYTES = 32; // length for seedA / randomness
 
@@ -461,11 +462,9 @@ public class RudrakshKEM {
     /* ---- FO KEM primitives ---- */
     private static byte[] G_function(byte[] pkh, byte[] m) {
         // produce 2*LEN_K_BYTES output, split into K and r
-        AsconXofStream g = new AsconXofStream();
         byte[] input = new byte[(pkh != null ? pkh.length : 0) + (m != null ? m.length : 0)];
         if (pkh != null) System.arraycopy(pkh, 0, input, 0, pkh.length);
         if (m != null) System.arraycopy(m, 0, input, pkh.length, m.length);
-        g.absorb(input);
         return AsconXofStream.hash(input, LEN_K_BYTES * 2);
     }
     private static byte[] H_function(byte[] input) { return AsconXofStream.hash(input, LEN_K_BYTES); }
@@ -539,14 +538,7 @@ public class RudrakshKEM {
         PkeCiphertext ct = pkeEnc(pkObj.pkePk, m, r);
         byte[] ser = serializeCiphertext(ct);
         debugBytes("kemEncaps.ct(serialized)", ser);
-        // return concatenation <ct||K>
-        // Final shared secret = H(ct || k)
-        byte[] cAndK = new byte[ser.length + k.length];
-        System.arraycopy(ser, 0, cAndK, 0, ser.length);
-        System.arraycopy(k, 0, cAndK, ser.length, k.length);
-        byte[] K = H_function(cAndK);
-
-        return new byte[][]{ser, K}; // return ct and shared K separately
+        return new byte[][]{ser, k}; // return ct and shared K (per Fig. 3)
     }
 
     public byte[] kemDecaps(KEMPk pkObj, KEMSk skObj, byte[] ctSerializedAndK) {
@@ -555,12 +547,6 @@ public class RudrakshKEM {
         int ctLen = (L * N + N) * 2;
         if (ctSerializedAndK.length < ctLen) throw new IllegalArgumentException("malformed input");
         byte[] ctSerialized = Arrays.copyOfRange(ctSerializedAndK, 0, ctLen);
-        byte[] Kenc = null;
-        if (ctSerializedAndK.length >= ctLen + LEN_K_BYTES) {
-            Kenc = Arrays.copyOfRange(ctSerializedAndK, ctLen, ctLen + LEN_K_BYTES);
-        }
-
-
         PkeCiphertext ct = deserializeCiphertext(ctSerialized);
         byte[] mPrime = pkeDec(skObj.pkeSk, ct);
 
@@ -570,12 +556,8 @@ public class RudrakshKEM {
 
         PkeCiphertext cStar = pkeEnc(pkObj.pkePk, mPrime, rprime);
         byte[] cStarSer = serializeCiphertext(cStar);
-        // Candidate 1: success path
-        byte[] cAndK = new byte[ctSerialized.length + Kprime.length];
-        System.arraycopy(ctSerialized, 0, cAndK, 0, ctSerialized.length);
-        System.arraycopy(Kprime, 0, cAndK, ctSerialized.length, Kprime.length);
-        byte[] Ksuccess = H_function(cAndK);
-
+        // Candidate 1: success path (return K' directly as in Fig. 3)
+        byte[] Ksuccess = Kprime;
         // Candidate 2: failure path
         byte[] cAndZ = new byte[ctSerialized.length + skObj.z.length];
         System.arraycopy(ctSerialized, 0, cAndZ, 0, ctSerialized.length);
