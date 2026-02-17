@@ -48,6 +48,8 @@ byte[] kDec = kem.kemDecaps(pk, sk, ct);
 
 ## Test
 - `mvn test`
+- Note: this only runs JUnit tests (currently `AsconTest`) and does not execute `RudrakshKEM.main`.
+- To exercise the KEM demo logic, run the main class using the `Run` section above.
 
 ## Community Review
 I attempted to contact the core authors of the paper to clarify implementation details, but I was unable to receive a response. I am opening this repository to the community for review to identify any mismatches or issues in the implementation and to provide comments or improvements.
